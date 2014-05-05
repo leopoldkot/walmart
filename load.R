@@ -1,7 +1,7 @@
 
 # badIds <- list(c(5, 99), c(9, 99), c(10, 99), c(18,43), c(24, 43), c(25, 99), c(34, 39), c(36, 30), c(37, 29), c(42, 30))
 
-# features  2010-02-05    2012-10-26
+# features  2010-02-05                            2012-10-26
 # train     2010-02-05    2012-10-26
 # test                                2012-11-02  2013-07-26
 ONE_YEAR_WEEKS=52
@@ -12,6 +12,10 @@ TRAIN.FROM <- as.Date('2010-02-05')
 TRAIN.FROM.NUM <- as.numeric(TRAIN.FROM)
 TRAIN.TO <- as.Date('2012-10-26')
 TRAIN.TO.NUM <- as.numeric(TRAIN.TO)
+TRAIN.MID <- as.Date('2010-02-05') + weeks(52*2)
+
+TEST.FROM <- as.Date('2012-11-02')
+
 
 loadData <- function () {
   stores <<- read.csv('./data/stores.csv')
@@ -38,6 +42,10 @@ loadData <- function () {
   fillTrainNA()
   boostCPI()
   features <<- ddply(features, .(Date), transform, CPI_ss=mean(CPI_s))
+  
+  ws.stats <- ddply(train, ~Store, summarise, ws.sum = sum(Weekly_Sales), ws.mean = sum(Weekly_Sales)/length(Weekly_Sales != 0))
+  
+  stores <<- merge(stores, ws.stats, all.x = TRUE)
   
   features <<- merge(features, stores, all.x = TRUE)
   features <<- merge(features, subset(train, Dept == 0)[,c('Store', 'Date', 'Weekly_Sales')], all.x = TRUE)

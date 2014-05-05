@@ -17,6 +17,7 @@ geomHolidays <- function () {
 geomMilestones <- function () {
   dates <- c('2010-02-05', '2012-10-26', '2012-11-02', '2013-07-26')
   dates <- as.numeric(as.Date(dates))
+  #dates <- c(dates, as.Date('2010-02-05') + weeks(52*2))
   geom_vline(xintercept=dates, colour = "green")
 }
 
@@ -29,7 +30,6 @@ plotMilestones <- function () {
    + scale_color_identity()
   )
 }
-
 
 plotFuel <- function (store) {
   p1 <- (
@@ -90,8 +90,11 @@ plotDeptSales <- function (dept) {
   
   cmp <- expression(Dept == dept & Store >= 0 & Store < 20)
   
-  #t <- subset(train, eval(cmp))[,fields]
-  t <- rbind(subset(train, eval(cmp))[,fields], subset(predicts, eval(cmp))[,fields])
+  if (exists('predicts')) {
+    t <- rbind(subset(train, eval(cmp))[,fields], subset(predicts, eval(cmp))[,fields])
+  } else {
+    t <- subset(train, eval(cmp))[,fields]
+  }
   
   t$nCoef <- as.numeric(max(train$Date) - min(train$Date))/7
   
@@ -127,24 +130,15 @@ plotStoreMarkdowns <- function (store) {
   #print(p)
 }
 
-plotPredict <- function (store, dept) {
+plotPredict <- function (store, dept, train.dateTo=TRAIN.TO, modelName=DEFAULT_MODEL) {
   t <- train
-  tt <- getStoreDeptTrainTS(store, dept)
-  
-  fit <<- fitStoreDeptSales(tt)
-  print(fit)
-  #tsdiag(fit)
-  
-  #plot(residuals(fit))
-  #plot(fit)
-  #plot(fit$x,col="green")
-  #lines(fitted(fit),col="red")
-  
-  f <<- forecastStoreDeptSales(fit)
+  tt <- getStoreDeptTrainTS(store, dept, dateTo=train.dateTo)
+
+  m <- wModel(modelName, timeSeries = tt)
+  m <- fitStoreDeptSales(m)
+  m <- forecastStoreDeptSales(m)
+  f <- m$forecast
   plot(f)
-  
-  #   f.df <<- data.frame(Store=store, Dept=dept, (lapply(round(time(f$mean)*ONE_YEAR_WEEKS), function(x) {  ymd('2010-02-05') + weeks(x) - weeks(4)})), f$mean)
-  #   names(f.df) <<- c( 'Store', 'Dept', 'Date', 'Weekly_Sales')
 }
 
 plotAligns <- function(store, dept) {

@@ -1,14 +1,28 @@
 library(doMC, quiet=T)
 registerDoMC(8)
 
-predictStoreDeptSales <- function (store, dept) {
+getStoreDeptTrainTS <- function (store, dept, dateFrom=TRAIN.FROM, dateTo=TRAIN.TO) {
   t <- train
-  df <- t[t$Store==store & t$Dept==dept,c('Weekly_Sales', 'IsHoliday')]
+  df <- t[t$Store==store & t$Dept==dept & t$Date >= dateFrom & t$Date <= dateTo,c('Weekly_Sales', 'IsHoliday')]
   tt <- ts(df[,'Weekly_Sales'], frequency=ONE_YEAR_WEEKS, start=c(0, getWeek('2010-02-05')))
-  ss <- fitStoreDeptSales(tt)
-  f <- forecastStoreDeptSales(ss)
+}
+
+getStoreDeptTrainDF <- function (store, dept, dateFrom=TRAIN.FROM, dateTo=TRAIN.TO) {
+  t <- train
+  df <- t[t$Store==store & t$Dept==dept & t$Date >= dateFrom & t$Date <= dateTo,c('Store', 'Dept', 'Date', 'Weekly_Sales', 'IsHoliday')]
+}
+
+
+predictStoreDeptSales <- function (store, dept, modelName='arima', dateFrom=TRAIN.FROM, dateTo=TRAIN.TO) {
+  tt <- getStoreDeptTrainTS(store, dept, dateFrom=dateFrom, dateTo=dateTo)
   
-  offset <- ymd('2010-02-05') - weeks(4)
+  m <- wModel(modelName, timeSeries = tt)
+  
+  m <- fitStoreDeptSales(m)
+  m <- forecastStoreDeptSales(m)
+  f <- m$forecast
+  
+  offset <- dateFrom - weeks(4)
   f.df <- data.frame(Store=store, Dept=dept, (lapply(round(time(f$mean)*ONE_YEAR_WEEKS), function(x) { offset  + weeks(x) })), as.numeric(f$mean))
   names(f.df) <- c( 'Store', 'Dept', 'Date', 'Weekly_Sales')
   
@@ -62,6 +76,19 @@ predictAllSalesMC <- function () {
   
   return(res)
   
+}
+
+testPredict <- function (store, dept) {
+  p1 <- predictStoreDeptSales(store, dept, dateTo=TRAIN.MID)
+  p1 <- p1[p1$Date <= TRAIN.TO,]
+
+  t1 <- getStoreDeptTrainDF(store, dept, dateFrom=min(p1$Date), dateTo=max(p1$Date))
+  
+  test.res <- join(p1, t1, by=c('Store', 'Dept', 'Date'))
+  colnames(test.res)[4] <- 'Weekly_Sales.pred'
+  
+  print(ggplot(data=test.res) + geom_bar(aes(x=Date, y=Weekly_Sales.pred-Weekly_Sales), stat ="identity"))
+  return(test.res)
 }
 
 savePredicts <- function() {
